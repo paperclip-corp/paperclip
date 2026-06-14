@@ -83,6 +83,11 @@ const adapterDisplayMap: Record<string, AdapterDisplayInfo> = {
     description: "Local Grok Build agent",
     icon: Bot,
   },
+  qwen_local: {
+    label: "Qwen",
+    description: "Local Qwen agent",
+    icon: Sparkles,
+  },
   opencode_local: {
     label: "OpenCode",
     description: "Local multi-provider agent",

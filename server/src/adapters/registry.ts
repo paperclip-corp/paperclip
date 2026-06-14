@@ -92,6 +92,18 @@ import {
   models as grokModels,
 } from "@paperclipai/adapter-grok-local";
 import {
+  execute as qwenExecute,
+  listQwenSkills,
+  syncQwenSkills,
+  testEnvironment as qwenTestEnvironment,
+  sessionCodec as qwenSessionCodec,
+} from "@paperclipai/adapter-qwen-local/server";
+import {
+  agentConfigurationDoc as qwenAgentConfigurationDoc,
+  models as qwenModels,
+  modelProfiles as qwenModelProfiles,
+} from "@paperclipai/adapter-qwen-local";
+import {
   execute as openCodeExecute,
   listOpenCodeSkills,
   syncOpenCodeSkills,
@@ -384,6 +396,28 @@ const grokLocalAdapter: ServerAdapterModule = {
   agentConfigurationDoc: grokAgentConfigurationDoc,
 };
 
+const qwenLocalAdapter: ServerAdapterModule = {
+  type: "qwen_local",
+  execute: qwenExecute,
+  testEnvironment: qwenTestEnvironment,
+  listSkills: listQwenSkills,
+  syncSkills: syncQwenSkills,
+  sessionCodec: qwenSessionCodec,
+  sessionManagement: getAdapterSessionManagement("qwen_local") ?? undefined,
+  models: qwenModels,
+  modelProfiles: qwenModelProfiles,
+  supportsLocalAgentJwt: true,
+  supportsInstructionsBundle: true,
+  instructionsPathKey: "instructionsFilePath",
+  requiresMaterializedRuntimeSkills: false,
+  getRuntimeCommandSpec: (config) => ({
+    command: readConfiguredCommand(config, "qwen"),
+    detectCommand: readConfiguredCommand(config, "qwen"),
+    installCommand: null,
+  }),
+  agentConfigurationDoc: qwenAgentConfigurationDoc,
+};
+
 const openclawGatewayAdapter: ServerAdapterModule = {
   type: "openclaw_gateway",
   execute: openclawGatewayExecute,
@@ -522,6 +556,7 @@ function registerBuiltInAdapters() {
     cursorLocalAdapter,
     geminiLocalAdapter,
     grokLocalAdapter,
+    qwenLocalAdapter,
     openclawGatewayAdapter,
     hermesLocalAdapter,
     processAdapter,
