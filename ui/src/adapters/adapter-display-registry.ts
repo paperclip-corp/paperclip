@@ -88,6 +88,11 @@ const adapterDisplayMap: Record<string, AdapterDisplayInfo> = {
     description: "Local Qwen agent",
     icon: Sparkles,
   },
+  dify_workflow: {
+    label: "Dify Workflow",
+    description: "Execute Dify AI workflows",
+    icon: Bot,
+  },
   opencode_local: {
     label: "OpenCode",
     description: "Local multi-provider agent",

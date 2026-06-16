@@ -104,6 +104,15 @@ import {
   modelProfiles as qwenModelProfiles,
 } from "@paperclipai/adapter-qwen-local";
 import {
+  execute as difyWorkflowExecute,
+  testEnvironment as difyWorkflowTestEnvironment,
+  sessionCodec as difyWorkflowSessionCodec,
+} from "@paperclipai/adapter-dify-workflow/server";
+import {
+  agentConfigurationDoc as difyWorkflowAgentConfigurationDoc,
+  models as difyWorkflowModels,
+} from "@paperclipai/adapter-dify-workflow";
+import {
   execute as openCodeExecute,
   listOpenCodeSkills,
   syncOpenCodeSkills,
@@ -429,6 +438,18 @@ const openclawGatewayAdapter: ServerAdapterModule = {
   agentConfigurationDoc: openclawGatewayAgentConfigurationDoc,
 };
 
+const difyWorkflowAdapter: ServerAdapterModule = {
+  type: "dify_workflow",
+  execute: difyWorkflowExecute,
+  testEnvironment: difyWorkflowTestEnvironment,
+  sessionCodec: difyWorkflowSessionCodec,
+  models: difyWorkflowModels,
+  supportsLocalAgentJwt: false,
+  supportsInstructionsBundle: false,
+  requiresMaterializedRuntimeSkills: false,
+  agentConfigurationDoc: difyWorkflowAgentConfigurationDoc,
+};
+
 const openCodeLocalAdapter: ServerAdapterModule = {
   type: "opencode_local",
   execute: openCodeExecute,
@@ -558,6 +579,7 @@ function registerBuiltInAdapters() {
     grokLocalAdapter,
     qwenLocalAdapter,
     openclawGatewayAdapter,
+    difyWorkflowAdapter,
     hermesLocalAdapter,
     processAdapter,
     httpAdapter,
