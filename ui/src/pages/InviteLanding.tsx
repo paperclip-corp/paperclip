@@ -26,6 +26,7 @@ const ENABLED_INVITE_ADAPTERS = new Set([
   "opencode_local",
   "pi_local",
   "cursor",
+  "openclaw_gateway",
 ]);
 
 function readNestedString(value: unknown, path: string[]): string | null {
