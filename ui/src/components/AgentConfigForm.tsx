@@ -95,7 +95,7 @@ type AgentConfigFormProps = {
   | {
       mode: "edit";
       agent: Agent;
-      onSave: (patch: Record<string, unknown>) => void;
+      onSave: (patch: Record<string, unknown>) => void | Promise<unknown>;
       isSaving?: boolean;
     }
 );
@@ -114,6 +114,22 @@ const EMPTY_ENV: Record<string, EnvBinding> = {};
 
 export function supportsAdapterModelRefresh(adapterType: string): boolean {
   return adapterType === "claude_local" || adapterType === "codex_local" || adapterType === "acpx_local";
+}
+
+export function getAgentConfigTestActionLabel(input: { isCreate: boolean; isDirty: boolean }): string {
+  return !input.isCreate && input.isDirty ? "Save + Test" : "Test";
+}
+
+export async function runAgentConfigEnvironmentTest(input: {
+  isCreate: boolean;
+  isDirty: boolean;
+  saveDraft?: () => void | Promise<unknown>;
+  runTest: () => Promise<AdapterEnvironmentTestResult>;
+}) {
+  if (!input.isCreate && input.isDirty) {
+    await input.saveDraft?.();
+  }
+  return await input.runTest();
 }
 
 function isOverlayDirty(o: AgentConfigOverlay): boolean {
@@ -307,9 +323,9 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     setOverlay({ ...emptyOverlay });
   }, []);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (isCreate || !isDirty) return;
-    props.onSave(buildAgentUpdatePatch(props.agent, overlay));
+    await props.onSave(buildAgentUpdatePatch(props.agent, overlay));
   }, [isCreate, isDirty, overlay, props]);
 
   useEffect(() => {
@@ -508,11 +524,47 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       });
     },
   });
-  const testEnvironmentDisabled = testEnvironment.isPending || !selectedCompanyId;
+  const [testActionPending, setTestActionPending] = useState(false);
+  const [testActionError, setTestActionError] = useState<string | null>(null);
+  const testActionLabel = getAgentConfigTestActionLabel({ isCreate, isDirty });
+  const isSavePending = !isCreate && Boolean(props.isSaving);
+  const testEnvironmentDisabled = testActionPending || isSavePending || !selectedCompanyId;
+  const runEnvironmentTest = useCallback(async () => {
+    if (!selectedCompanyId) {
+      throw new Error("Select a company to test adapter environment");
+    }
+    setTestActionPending(true);
+    setTestActionError(null);
+    testEnvironment.reset();
+    try {
+      return await runAgentConfigEnvironmentTest({
+        isCreate,
+        isDirty,
+        saveDraft: !isCreate ? handleSave : undefined,
+        runTest: () => testEnvironment.mutateAsync(),
+      });
+    } catch (error) {
+      setTestActionError(error instanceof Error ? error.message : "Environment test failed");
+      throw error;
+    } finally {
+      setTestActionPending(false);
+    }
+  }, [selectedCompanyId, isCreate, isDirty, handleSave, testEnvironment]);
+  // `runEnvironmentTest` (and `testEnvironmentDisabled`) change identity on every
+  // render because `useMutation` returns a fresh result object each time. Hold the
+  // latest behavior in a ref so the trigger handed to the parent stays referentially
+  // stable — otherwise the `onTestActionChange` effect below re-runs every render,
+  // pushing a new function into parent state and causing an infinite update loop.
+  const triggerRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    triggerRef.current = () => {
+      if (testEnvironmentDisabled) return;
+      void runEnvironmentTest().catch(() => undefined);
+    };
+  }, [runEnvironmentTest, testEnvironmentDisabled]);
   const triggerTestEnvironment = useCallback(() => {
-    if (testEnvironmentDisabled) return;
-    testEnvironment.mutate();
-  }, [testEnvironment.mutate, testEnvironmentDisabled]);
+    triggerRef.current();
+  }, []);
 
   useEffect(() => {
     if (!showAdapterTestEnvironmentButton || !props.onTestActionChange) return;
@@ -526,7 +578,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     if (!showAdapterTestEnvironmentButton || !props.onTestActionStateChange) return;
     props.onTestActionStateChange({
       disabled: testEnvironmentDisabled,
-      pending: testEnvironment.isPending,
+      pending: testActionPending,
     });
     return () => {
       props.onTestActionStateChange?.({ disabled: true, pending: false });
@@ -535,23 +587,24 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     showAdapterTestEnvironmentButton,
     props.onTestActionStateChange,
     testEnvironmentDisabled,
-    testEnvironment.isPending,
+    testActionPending,
   ]);
 
   useEffect(() => {
     if (!props.onTestFeedbackChange) return;
     props.onTestFeedbackChange({
-      errorMessage: testEnvironment.error instanceof Error
-        ? testEnvironment.error.message
-        : testEnvironment.error
-          ? "Environment test failed"
-          : null,
+      errorMessage: testActionError
+        ?? (testEnvironment.error instanceof Error
+          ? testEnvironment.error.message
+          : testEnvironment.error
+            ? "Environment test failed"
+            : null),
       result: testEnvironment.data ?? null,
     });
     return () => {
       props.onTestFeedbackChange?.({ errorMessage: null, result: null });
     };
-  }, [props.onTestFeedbackChange, testEnvironment.data, testEnvironment.error]);
+  }, [props.onTestFeedbackChange, testActionError, testEnvironment.data, testEnvironment.error]);
 
   // Current model for display
   const currentModelId = isCreate
@@ -895,7 +948,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
               onClick={triggerTestEnvironment}
               disabled={testEnvironmentDisabled}
             >
-              {testEnvironment.isPending ? "Testing..." : "Test"}
+              {testActionPending ? `${testActionLabel}...` : testActionLabel}
             </Button>
           )}
         </div>
@@ -955,11 +1008,12 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             </Field>
           )}
 
-          {showInlineAdapterTestEnvironmentFeedback && testEnvironment.error && (
+          {showInlineAdapterTestEnvironmentFeedback && (testActionError || testEnvironment.error) && (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {testEnvironment.error instanceof Error
-                ? testEnvironment.error.message
-                : "Environment test failed"}
+              {testActionError
+                ?? (testEnvironment.error instanceof Error
+                  ? testEnvironment.error.message
+                  : "Environment test failed")}
             </div>
           )}
 
@@ -1169,7 +1223,6 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                       ? set!({ extraArgs: v })
                       : mark("adapterConfig", "extraArgs", v?.trim() ? parseCommaArgs(v) : null)
                   }
-                  immediate
                   className={inputClass}
                   placeholder="e.g. --verbose, --foo=bar"
                 />
