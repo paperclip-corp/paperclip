@@ -369,6 +369,26 @@ See [doc/DEVELOPING.md](doc/DEVELOPING.md) for the full development guide.
 
 <br/>
 
+## Backup & Restore
+
+Backup scripts are provided to save source code and configuration:
+
+```bash
+# Backup (creates timestamped archive in /Users/admin/workspace/OPC/backup/paperclip-bk/)
+./backup.sh
+
+# Restore (interactive - select from available backups)
+./restore.sh
+```
+
+**What's backed up:**
+- `.env` configuration file
+- Source code (excludes `node_modules`, `dist`, `.git`)
+
+Backups are automatically rotated (keeps last 5).
+
+<br/>
+
 ## Roadmap
 
 - ✅ Plugin system (e.g. add a knowledge base, custom tracing, queues, etc)
