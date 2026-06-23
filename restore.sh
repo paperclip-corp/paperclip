@@ -42,6 +42,16 @@ if [ -f "$BACKUP_DIR/env.backup" ]; then
     cp "$BACKUP_DIR/env.backup" "$SCRIPT_DIR/.env"
 fi
 
+# Restore runtime config (~/.paperclip/)
+if [ -f "$BACKUP_DIR/paperclip-runtime.tar.gz" ]; then
+    read -p "Restore runtime config (~/.paperclip/)? [Y/n]: " RESTORE_RUNTIME
+    RESTORE_RUNTIME=${RESTORE_RUNTIME:-Y}
+    if [ "$RESTORE_RUNTIME" = "y" ] || [ "$RESTORE_RUNTIME" = "Y" ]; then
+        echo "Restoring runtime config..."
+        tar -xzf "$BACKUP_DIR/paperclip-runtime.tar.gz" -C "$HOME"
+    fi
+fi
+
 # Optionally restore source (usually not needed if using git)
 if [ -f "$BACKUP_DIR/paperclip-src.tar.gz" ]; then
     read -p "Restore source code? (usually not needed) [y/N]: " RESTORE_SRC
